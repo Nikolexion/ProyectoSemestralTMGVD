@@ -2,6 +2,8 @@
 #include "lector.cpp"
 #include "utils.cpp"
 #include <filesystem>
+const int SKETCH_W = 5;
+const int SKETCH_D = 1048576;
 
 class multi_countsketch {
     private:
@@ -14,13 +16,10 @@ class multi_countsketch {
 
     public:
     multi_countsketch(int n, const int k_s[]) : N(n){
-        multi.resize(N);
-
         K_S.assign(k_s, k_s + N);
         
         for (int i = 0; i < N; i++){
-            CountSketch temp((pow(2,20)), 5);
-            multi.emplace_back(temp);
+            multi.emplace_back(SKETCH_W, SKETCH_D);
         }
 
         try {
@@ -29,7 +28,6 @@ class multi_countsketch {
             }
         } catch (const std::exception &e) {
             std::cerr << "Error scanning datasets: " << e.what() << std::endl;
-            return;
         }
     }
 
