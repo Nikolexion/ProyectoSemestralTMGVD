@@ -1,3 +1,5 @@
+#ifndef UTILS_CPP
+#define UTILS_CPP
 #include <string_view>
 #include <string>
 #include <algorithm>
@@ -47,3 +49,4 @@ uint64_t encode_kmer(std::string_view kmer_str) {
 
     return std::min(kmer_code, rc_code);
 }
+#endif
