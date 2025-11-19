@@ -1,0 +1,92 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <filesystem>
+#include <chrono> // Para medir el tiempo
+#include "multi_cs.cpp" // Asegúrate de incluir tus headers correctamente
+
+namespace fs = std::filesystem;
+
+// --- CONFIGURACIÓN PARA GENOMA HUMANO ---
+// 2^26 = ~67 millones de columnas. 
+// Memoria aprox: 67M * 8 bytes * 5 filas = ~2.6 GB de RAM. 
+// Si tienes menos RAM, baja a 25 (1.3 GB) o 24 (600 MB).
+const int HUMAN_D = 1 << 26; 
+const int HUMAN_W = 5;
+
+// Función auxiliar para obtener todos los archivos .fa ordenados
+std::vector<std::string> obtener_archivos(const std::string& ruta) {
+    std::vector<std::string> archivos;
+    try {
+        for (const auto& entry : fs::directory_iterator(ruta)) {
+            if (entry.path().extension() == ".fa" || entry.path().extension() == ".fasta") {
+                archivos.push_back(entry.path().string());
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error leyendo directorio: " << e.what() << std::endl;
+    }
+    // Ordenamos para procesar chr1, chr2... en orden (opcional pero útil)
+    std::sort(archivos.begin(), archivos.end());
+    return archivos;
+}
+
+int main() {
+    // 1. Configuración de K-mers (ej. k=21 para especificidad en genomas grandes)
+    // Puedes probar combinaciones como {15, 21, 31}
+    const int N = 3;
+    int k_values[N] = {15, 21, 31};
+
+    std::cout << "=== PROCESAMIENTO GENOMA HUMANO GRCh38 ===" << std::endl;
+    std::cout << "Configuracion: W=" << HUMAN_W << ", D=" << HUMAN_D << std::endl;
+    
+    // Instanciar el Sketch
+    // Asegúrate de usar el constructor dinámico que hicimos en el paso anterior
+    multi_countsketch mcs(N, k_values, HUMAN_W, HUMAN_D);
+
+    std::string carpeta_datasets = "datasets"; // Tu carpeta de la imagen
+    std::vector<std::string> archivos = obtener_archivos(carpeta_datasets);
+
+    if (archivos.empty()) {
+        std::cerr << "No se encontraron archivos .fa en " << carpeta_datasets << std::endl;
+        return 1;
+    }
+
+    // ==========================================
+    // FASE 1: ENTRENAMIENTO (Learning)
+    // ==========================================
+    std::cout << "\n--- FASE 1: ENTRENAMIENTO (Llenando el Sketch) ---" << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
+
+    mcs.procesar_archivos();
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    std::cout << "Entrenamiento completado en " << elapsed.count() << " segundos." << std::endl;
+
+
+    // ==========================================
+    // FASE 2: PUNTUACIÓN (Scoring)
+    // ==========================================
+    // Ahora calculamos el Score de cada cromosoma individualmente
+    // para ver cuál difiere más de la media global.
+    
+    std::cout << "\n--- FASE 2: CALCULO DE SCORES ---" << std::endl;
+    std::cout << "Archivo | Score (Indice de Anomalia/Rareza)" << std::endl;
+    std::cout << "---------------------------------------------" << std::endl;
+
+    // Pesos opcionales (dando mas peso a k-mers largos)
+    std::vector<double> pesos = {1.0, 1.5, 2.0}; 
+
+    for (const auto& path : archivos) {
+        lectordatasets lector(path);
+        std::string secuencia = lector.leerTexto();
+
+        double score = mcs.calculate_score(secuencia, pesos);
+
+        std::cout << fs::path(path).filename().string() << " | " << score << std::endl;
+    }
+
+    std::cout << "\nProceso finalizado." << std::endl;
+    return 0;
+}

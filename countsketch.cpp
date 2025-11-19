@@ -6,7 +6,7 @@
 #include <random> // Para generar semillas de hash
 
 // Definimos el tipo de contador
-using CounterType = uint64_t; // Soporta frecuencias de hasta ~4 mil millones
+using CounterType = uint32_t; // Soporta frecuencias de hasta ~4 mil millones
 
 class CountSketch {
 private:
@@ -124,6 +124,40 @@ public:
     // Métodos para obtener parámetros para el cálculo del Z-Score (en la siguiente etapa)
     int getW() const { return W; }
     int getD() const { return D; }
+
+    /**
+     * @brief Calcula la media (mu) y la desviación estándar (sigma) de los contadores en la matriz.
+     * Esto sirve para normalizar los puntajes (Z-Score).
+     * @return Un par {media, desviacion_estandar}
+     */
+    std::pair<double, double> get_distribution_stats() const {
+        double sum = 0.0;
+        double sum_sq = 0.0;
+        long long total_elements = (long long)W * D;
+
+        // 1. Calcular suma y suma de cuadrados iterando toda la matriz
+        for (const auto& row : matrix) {
+            for (CounterType val : row) {
+                double v = static_cast<double>(val);
+                sum += v;
+                sum_sq += (v * v);
+            }
+        }
+
+        // 2. Calcular media
+        double mean = sum / total_elements;
+
+        // 3. Calcular varianza y desviación estándar
+        // Var = E[X^2] - (E[X])^2
+        double variance = (sum_sq / total_elements) - (mean * mean);
+        
+        // Evitar raíces negativas por errores de punto flotante muy pequeños
+        if (variance < 0) variance = 0; 
+
+        double std_dev = std::sqrt(variance);
+
+        return {mean, std_dev};
+    }
     
     // NOTA: No se expone la matriz para mantener el encapsulamiento.
     // Los métodos para calcular µk y σk requerirán iterar sobre las celdas o un conjunto
