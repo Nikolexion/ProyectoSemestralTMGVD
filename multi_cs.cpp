@@ -115,4 +115,30 @@ public:
             }
         }
     }
+
+    /**
+     * @brief Estima la frecuencia de un k-mer dado en el CountSketch correspondiente.
+     * @param kmer_str El k-mer en forma de cadena.
+     * @param index Índice del CountSketch (0 a N-1).
+     * @return La frecuencia estimada del k-mer.
+     */
+    CounterType estimate(const std::string& kmer_str, int index) {
+        if (index < 0 || index >= N) {
+            throw std::out_of_range("Index out of range in multi_countsketch::estimate");
+        }
+        uint64_t encoded_kmer = encode_kmer(kmer_str);
+        return multi[index].estimate(encoded_kmer);
+    }
+
+    /**
+     * @brief Metodo wrapper para ejecutar update en el siguiente archivo del dataset, hasta que se acaben los archivos.
+     */
+    void procesar_archivos() {
+        std::string secuencia = sgte_archivo();
+        do {
+            update(secuencia);
+            secuencia = sgte_archivo();
+        } while (!secuencia.empty());
+        
+    }
 };
