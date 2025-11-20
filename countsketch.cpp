@@ -3,10 +3,10 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
-#include <random> // Para generar semillas de hash
+#include <random>
 
 // Definimos el tipo de contador
-using CounterType = uint32_t; // Soporta frecuencias de hasta ~4 mil millones
+using CounterType = uint32_t;
 
 class CountSketch {
 private:
@@ -20,10 +20,6 @@ private:
 
     /**
  * @brief Función de Hash rápida (MurmurHash3 Finalizer adaptado).
- * * Esta es una función de mezcla que toma una clave de 64 bits (el k-mer) 
- * y aplica una serie de multiplicaciones y XOR-shifts para producir un 
- * hash de 64 bits bien distribuido.
- *
  * @param kmer La clave de 64 bits (el k-mer codificado).
  * @param seed La semilla de 64 bits (para independencia).
  * @return El valor de hash de 64 bits.
@@ -60,7 +56,6 @@ public:
      * @param d Ancho (columnas).
      */
     CountSketch(int w, int d) : W(w), D(d) {
-        // Inicializar la matriz con W filas y D columnas, todas a 0
         matrix.resize(W, std::vector<CounterType>(D, 0));
         
         // Inicializar las semillas de hash para cada fila
@@ -91,10 +86,8 @@ public:
             int sign = (hash_g & 1) ? 1 : -1; // Usa el bit menos significativo
 
             // 3. Actualizar el contador. 
-            // En un Count Sketch estándar, se agrega 'sign' al contador. 
-            // Para conteo de frecuencias (siempre +1): simplemente incrementamos.
-            // Usaremos el incremento simple por ser un 'Count Sketch' aplicado a frecuencias de k-mer.
-            matrix[i][column_index]++;
+            //matrix[i][column_index]++;
+            matrix[i][column_index] += sign;
         }
     }
 
@@ -111,8 +104,6 @@ public:
         for (int i = 0; i < W; ++i) {
             uint64_t hash_h = fast_hash(kmer, seeds_h[i]);
             int column_index = hash_h % D;
-
-            // La estimación es el valor del contador en esa posición
             estimates.push_back(matrix[i][column_index]);
         }
 
@@ -121,12 +112,13 @@ public:
         return estimates[W / 2];
     }
 
-    // Métodos para obtener parámetros para el cálculo del Z-Score (en la siguiente etapa)
+    // Método para obtener el parámetro w 
     int getW() const { return W; }
+    // Método para obtener el parámetro d
     int getD() const { return D; }
 
     /**
-     * @brief Calcula la media (mu) y la desviación estándar (sigma) de los contadores en la matriz.
+     * @brief Calcula la media y la desviación estándar de los contadores en la matriz.
      * Esto sirve para normalizar los puntajes (Z-Score).
      * @return Un par {media, desviacion_estandar}
      */
@@ -134,8 +126,6 @@ public:
         double sum = 0.0;
         double sum_sq = 0.0;
         long long total_elements = (long long)W * D;
-
-        // 1. Calcular suma y suma de cuadrados iterando toda la matriz
         for (const auto& row : matrix) {
             for (CounterType val : row) {
                 double v = static_cast<double>(val);
@@ -144,11 +134,10 @@ public:
             }
         }
 
-        // 2. Calcular media
+        // Calcular media
         double mean = sum / total_elements;
 
-        // 3. Calcular varianza y desviación estándar
-        // Var = E[X^2] - (E[X])^2
+        // Calcular varianza y desviación estándar
         double variance = (sum_sq / total_elements) - (mean * mean);
         
         // Evitar raíces negativas por errores de punto flotante muy pequeños
@@ -158,32 +147,4 @@ public:
 
         return {mean, std_dev};
     }
-    
-    // NOTA: No se expone la matriz para mantener el encapsulamiento.
-    // Los métodos para calcular µk y σk requerirán iterar sobre las celdas o un conjunto
-    // de k-mers. Por ahora, solo Estimate() es suficiente.
 };
-
-// Ejemplo de uso (ejecutable en un prototipo C++):
-/*
-int main() {
-    // Configuración sugerida: w=5, d=2^20 (1048576)
-    CountSketch cs(5, 1048576); 
-
-    // K-mer de ejemplo (simulando un k-mer de 31 bases codificado)
-    uint64_t kmer1 = 1234567890ULL;
-    uint64_t kmer2 = 1234567891ULL; // Muy similar al kmer1 (colisión de hash probable)
-    uint64_t kmer3 = 9876543210ULL;
-
-    cs.update(kmer1);
-    cs.update(kmer1);
-    cs.update(kmer1);
-    cs.update(kmer2); // Se espera una frecuencia real de 1
-
-    std::cout << "Frecuencia estimada para kmer1 (real=3): " << cs.estimate(kmer1) << std::endl;
-    std::cout << "Frecuencia estimada para kmer2 (real=1): " << cs.estimate(kmer2) << std::endl;
-    std::cout << "Frecuencia estimada para kmer3 (real=0): " << cs.estimate(kmer3) << std::endl;
-
-    return 0;
-}
-*/

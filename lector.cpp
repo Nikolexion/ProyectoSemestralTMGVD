@@ -19,7 +19,7 @@ class lectordatasets{
                 throw std::runtime_error("No se pudo abrir el archivo: " + archivo);
             }
             
-            // 1. Omitir la línea de encabezado (la que empieza con '>')
+            // 1. Omitir la línea de encabezado
             std::string header_line;
             std::getline(file, header_line);
 
@@ -29,11 +29,8 @@ class lectordatasets{
             while (file.get(c)) {
                 if (c == 'A' || c == 'C' || c == 'G' || c == 'T') {
                     buffer << c;
-                } 
-                // Nota: Las 'N' (bases desconocidas) se omiten.
-                // Si desea mantener 'N', debe incluirlas en el switch y manejarlas en encode_kmer.
+                }
             }
-            
             return buffer.str();
         }
 };

@@ -11,7 +11,7 @@ char get_base_complement(char base) {
         case 'T': return 'A';
         case 'C': return 'G';
         case 'G': return 'C';
-        default: return 'N'; // Manejar bases desconocidas
+        default: return 'N'; // Para manejar bases desconocidas si es necesario
     }
 }
 
@@ -20,7 +20,6 @@ std::string reverse_complement(std::string_view kmer_str) {
     rc_kmer.resize(kmer_str.length());
     int k = kmer_str.length();
     
-    // Recorrer la cadena al revés
     for (int i = 0; i < k; ++i) {
         // Colocar el complemento en la posición inversa (reverso)
         rc_kmer[k - 1 - i] = get_base_complement(kmer_str[i]);
@@ -29,7 +28,7 @@ std::string reverse_complement(std::string_view kmer_str) {
 }
 
 uint64_t encode_kmer(std::string_view kmer_str) {
-    // Definimos una función local para la codificación binaria
+    // Función local para la codificación binaria
     auto binary_encode = [](std::string_view s) -> uint64_t {
         uint64_t encoded = 0;
         for (char base : s) {

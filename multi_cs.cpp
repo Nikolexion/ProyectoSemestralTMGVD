@@ -9,7 +9,7 @@
 #include <iostream>
 #include <cmath>
 #include <mutex>
-#include <omp.h> // Librería de OpenMP
+#include <omp.h>
 #include <memory>
 
 
@@ -22,18 +22,18 @@ private:
     int N;
     int W;
     int D;
-    // Mutexes: Uno por cada CountSketch para garantizar la seguridad de hilos
+    // Mutexs: Uno por cada CountSketch para garantizar la seguridad de hilos
     std::vector<std::unique_ptr<std::mutex>> sketch_mutexes;
 
 
 public:
     multi_countsketch(int n, const int k_s[], int w, int d) : N(n), W(w), D(d) {
         
-        // Inicializar K_S (longitudes de k) correctamente
+        // Inicializar K_S (longitudes de k)
         K_S.assign(k_s, k_s + N);
 
         for (int i = 0; i < N; i++){
-            // Construir CountSketches con (W, D) = (5, 1048576)
+            // Construir CountSketches y agregarlos al vector
             multi.emplace_back(W, D); 
             
             // Inicializar el mutex correspondiente
@@ -63,7 +63,6 @@ public:
         lectordatasets lector(archivo_actual);
         std::string texto;
         try {
-            // Nota: Aquí el lector debe filtrar el formato FASTA (encabezados y saltos de línea)
             texto = lector.leerTexto(); 
         } catch (const std::exception &e) {
             std::cerr << "Error reading "<<archivo_actual<<": "<<e.what()<<"\n";
@@ -100,7 +99,7 @@ public:
                 // 1. Generar la vista de k-mer
                 std::string_view kmer_str = std::string_view(secuencia).substr(j, k);
                 
-                // 2. Codificar al k-mer canónico (seguro y local al hilo)
+                // 2. Codificar al k-mer canónico
                 uint64_t encoded_kmer = encode_kmer(kmer_str); 
                 
                 // 3. SINCRONIZACIÓN: Protegemos la escritura en el CountSketch
@@ -150,20 +149,18 @@ public:
     double calculate_score(const std::string& secuencia, const std::vector<double>& weights = {}) {
         double total_score = 0.0;
 
-        // Verificar que tengamos pesos para cada k, si no, usar 1.0
+        // Verificar que tengamos pesos para cada k, si no, usar default 1.0
         bool use_custom_weights = (weights.size() == N);
 
-        // Iterar sobre cada configuración de k (k in K)
+        // Iterar sobre cada k
         for (int i = 0; i < N; ++i) {
             int k = K_S[i];
             double w_k = use_custom_weights ? weights[i] : 1.0;
             
-            // Si la secuencia es más corta que k, no podemos sacar k-mers
+            // Si la secuencia es más corta que k, no podemos sacar k-mers y continuamos
             if (secuencia.length() < k) continue;
 
             // 1. Obtener mu_k y sigma_k del sketch actual (multi[i])
-            // NOTA: Esto recorre toda la matriz del sketch. Si es muy lento para llamar
-            // en cada query, considera calcularlo solo una vez después del entrenamiento.
             std::pair<double, double> stats = multi[i].get_distribution_stats();
             double mu_k = stats.first;
             double sigma_k = stats.second;
@@ -177,12 +174,9 @@ public:
             // 2. Sumatoria interna: Recorrer todos los x_k en S
             for (size_t j = 0; j <= secuencia.length() - k; ++j) {
                 std::string_view kmer_str = std::string_view(secuencia).substr(j, k);
-                uint64_t encoded_kmer = encode_kmer(kmer_str); // Usamos tu función de utils
+                uint64_t encoded_kmer = encode_kmer(kmer_str);
 
-                // Obtener f_hat (estimación de frecuencia)
                 CounterType f_hat = multi[i].estimate(encoded_kmer);
-
-                // Calcular término Z: (f_hat - mu) / sigma
                 double z_score = (static_cast<double>(f_hat) - mu_k) / sigma_k;
                 
                 sum_z_scores += z_score;
@@ -190,7 +184,6 @@ public:
             }
 
             // 3. Aplicar normalización 1 / (|S| - k + 1)
-            // El término (|S| - k + 1) es exactamente 'num_kmers'
             double average_z_score = (num_kmers > 0) ? (sum_z_scores / num_kmers) : 0.0;
 
             // 4. Sumar al score total ponderado
