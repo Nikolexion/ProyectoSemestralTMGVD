@@ -6,7 +6,7 @@
 #include <random>
 
 // Definimos el tipo de contador
-using CounterType = uint32_t;
+using CounterType = int32_t;
 
 class CountSketch {
 private:
@@ -79,7 +79,7 @@ public:
         for (int i = 0; i < W; ++i) {
             // 1. Obtener el índice de columna (0 a D-1)
             uint64_t hash_h = fast_hash(kmer, seeds_h[i]);
-            int column_index = hash_h % D;
+            int column_index = hash_h & (D - 1);
 
             // 2. Obtener el signo (+1 o -1)
             uint64_t hash_g = fast_hash(kmer, seeds_g[i]);
@@ -87,6 +87,7 @@ public:
 
             // 3. Actualizar el contador. 
             //matrix[i][column_index]++;
+            #pragma omp atomic
             matrix[i][column_index] += sign;
         }
     }
@@ -103,7 +104,11 @@ public:
 
         for (int i = 0; i < W; ++i) {
             uint64_t hash_h = fast_hash(kmer, seeds_h[i]);
-            int column_index = hash_h % D;
+            int column_index = hash_h & (D - 1);
+
+            uint64_t hash_g = fast_hash(kmer, seeds_g[i]);
+            int sign = (hash_g & 1) ? 1 : -1;
+            
             estimates.push_back(matrix[i][column_index]);
         }
 

@@ -22,9 +22,6 @@ private:
     int N;
     int W;
     int D;
-    // Mutexs: Uno por cada CountSketch para garantizar la seguridad de hilos
-    std::vector<std::unique_ptr<std::mutex>> sketch_mutexes;
-
 
 public:
     multi_countsketch(int n, const int k_s[], int w, int d) : N(n), W(w), D(d) {
@@ -32,14 +29,9 @@ public:
         // Inicializar K_S (longitudes de k)
         K_S.assign(k_s, k_s + N);
 
-        for (int i = 0; i < N; i++){
-            // Construir CountSketches y agregarlos al vector
-            multi.emplace_back(W, D); 
-            
-            // Inicializar el mutex correspondiente
-            sketch_mutexes.emplace_back(std::make_unique<std::mutex>());
-        }
-
+        // Construir CountSketches y agregarlos al vector
+        for (int i = 0; i < N; i++) multi.emplace_back(W, D); 
+        
         try {
             for (const auto& entry : std::filesystem::recursive_directory_iterator("datasets")) {
                 if (entry.is_regular_file()) dataset_files.push_back(entry.path().string());
@@ -85,31 +77,18 @@ public:
             // Verificar longitud mínima para evitar underflow
             if (secuencia.length() < k) continue; 
             
-            // Obtener referencias locales al objeto y al mutex
+            // Obtener referencias locales al objeto 
             CountSketch& current_sketch = multi[i];
-            std::mutex& current_mutex = *(sketch_mutexes[i]);
             size_t seq_len = secuencia.length();
             
-            // ======================== PARALELIZACIÓN ========================
-            // Dividimos el trabajo sobre las posiciones (j) entre los hilos
-            // Usamos schedule(static) para una distribución de carga eficiente y simple
-            #pragma omp parallel for shared(current_sketch, current_mutex, secuencia) schedule(static)
+            // Paralelizar el procesamiento de k-mers
+            #pragma omp parallel for schedule(static)
             for (size_t j = 0; j <= seq_len - k; ++j) {
-                
-                // 1. Generar la vista de k-mer
+
                 std::string_view kmer_str = std::string_view(secuencia).substr(j, k);
-                
-                // 2. Codificar al k-mer canónico
                 uint64_t encoded_kmer = encode_kmer(kmer_str); 
                 
-                // 3. SINCRONIZACIÓN: Protegemos la escritura en el CountSketch
-                {
-                    // Bloquea el mutex al entrar y lo libera al salir del scope
-                    std::lock_guard<std::mutex> lock(current_mutex);
-                    
-                    // Actualizar el sketch correspondiente
-                    current_sketch.update(encoded_kmer); 
-                }
+                current_sketch.update(encoded_kmer); 
             }
         }
     }
@@ -135,6 +114,7 @@ public:
         std::string secuencia = sgte_archivo();
         do {
             update(secuencia);
+            std::string().swap(secuencia);
             secuencia = sgte_archivo();
         } while (!secuencia.empty());
         
