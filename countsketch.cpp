@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <random>
+#include <fstream>
+#include <stdexcept>
 
 // Definimos el tipo de contador
 using CounterType = int32_t;
@@ -108,8 +110,8 @@ public:
 
             uint64_t hash_g = fast_hash(kmer, seeds_g[i]);
             int sign = (hash_g & 1) ? 1 : -1;
-            
-            estimates.push_back(matrix[i][column_index]);
+
+            estimates.push_back(matrix[i][column_index] * sign);
         }
 
         // Devolver la mediana de las estimaciones
@@ -151,5 +153,49 @@ public:
         double std_dev = std::sqrt(variance);
 
         return {mean, std_dev};
+    }
+
+    /**
+     * @brief Guarda le estructura (semillas y matriz) en binario.
+     */
+    void save(std::ofstream& out) const {
+        out.write(reinterpret_cast<const char*>(&W), sizeof(W));
+        out.write(reinterpret_cast<const char*>(&D), sizeof(D));
+
+        size_t seeds_size = seeds_h.size();
+        out.write(reinterpret_cast<const char*>(&seeds_size), sizeof(seeds_size));
+        out.write(reinterpret_cast<const char*>(seeds_h.data()), seeds_size * sizeof(uint64_t));
+        out.write(reinterpret_cast<const char*>(seeds_g.data()), seeds_size * sizeof(uint64_t));
+
+        for (const auto& row : matrix) {
+            out.write(reinterpret_cast<const char*>(row.data()), D * sizeof(CounterType));
+        }
+    }
+
+    /**
+     * @brief Carga la estructura desde binario.
+     * Valida que las dimensiones coincidan con la configuración actual.
+     */
+    void load(std::ifstream& in) {
+        int loaded_w, loaded_d;
+        in.read(reinterpret_cast<char*>(&loaded_w), sizeof(loaded_w));
+        in.read(reinterpret_cast<char*>(&loaded_d), sizeof(loaded_d));
+
+        if (loaded_w != W || loaded_d != D) {
+            throw std::runtime_error("Error de carga: Las dimensiones del archivo no coinciden con la configuración de la estructura.");
+        }
+
+        size_t seeds_size;
+        in.read(reinterpret_cast<char*>(&seeds_size), sizeof(seeds_size));
+        
+        seeds_h.resize(seeds_size);
+        seeds_g.resize(seeds_size);
+        in.read(reinterpret_cast<char*>(seeds_h.data()), seeds_size * sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(seeds_g.data()), seeds_size * sizeof(uint64_t));
+
+
+        for (auto& row : matrix) {
+            in.read(reinterpret_cast<char*>(row.data()), D * sizeof(CounterType));
+        }
     }
 };
