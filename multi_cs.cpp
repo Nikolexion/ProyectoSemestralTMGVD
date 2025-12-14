@@ -129,44 +129,39 @@ public:
     double calculate_score(const std::string& secuencia, const std::vector<double>& weights = {}) {
         double total_score = 0.0;
 
-        // Verificar que tengamos pesos para cada k, si no, usar default 1.0
         bool use_custom_weights = (weights.size() == N);
 
-        // Iterar sobre cada k
         for (int i = 0; i < N; ++i) {
             int k = K_S[i];
             double w_k = use_custom_weights ? weights[i] : 1.0;
             
-            // Si la secuencia es más corta que k, no podemos sacar k-mers y continuamos
             if (secuencia.length() < k) continue;
 
-            // 1. Obtener mu_k y sigma_k del sketch actual (multi[i])
             std::pair<double, double> stats = multi[i].get_distribution_stats();
             double mu_k = stats.first;
             double sigma_k = stats.second;
 
             // Evitar división por cero si el sketch está vacío o es uniforme
             if (sigma_k == 0.0) sigma_k = 1.0; 
+            double inv_sigma_k = 1.0 / sigma_k;
 
             double sum_z_scores = 0.0;
-            int num_kmers = 0;
+            long long num_kmers = 0;
 
-            // 2. Sumatoria interna: Recorrer todos los x_k en S
-            for (size_t j = 0; j <= secuencia.length() - k; ++j) {
+            int max_j = secuencia.length() - k;
+            #pragma omp parallel for reduction(+:sum_z_scores, num_kmers) schedule(static)
+            for (size_t j = 0; j <= max_j; ++j) {
                 std::string_view kmer_str = std::string_view(secuencia).substr(j, k);
                 uint64_t encoded_kmer = encode_kmer(kmer_str);
 
                 CounterType f_hat = multi[i].estimate(encoded_kmer);
-                double z_score = (static_cast<double>(f_hat) - mu_k) / sigma_k;
+                double z_score = (static_cast<double>(f_hat) - mu_k) * inv_sigma_k;
                 
                 sum_z_scores += z_score;
                 num_kmers++;
             }
 
-            // 3. Aplicar normalización 1 / (|S| - k + 1)
             double average_z_score = (num_kmers > 0) ? (sum_z_scores / num_kmers) : 0.0;
-
-            // 4. Sumar al score total ponderado
             total_score += w_k * average_z_score;
         }
 
