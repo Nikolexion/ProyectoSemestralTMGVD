@@ -45,10 +45,7 @@ public:
      * @brief Retorna la siguiente secuencia del dataset.
      */
     std::string sgte_archivo(){
-        if (dataset_files.empty()) { 
-            std::cerr << "No dataset files found" << std::endl; 
-            return "";
-        }
+        if (dataset_files.empty()) return "";
         archivo_actual = dataset_files.back();
         dataset_files.pop_back();
 
@@ -111,6 +108,9 @@ public:
      * @brief Metodo wrapper para ejecutar update en el siguiente archivo del dataset, hasta que se acaben los archivos.
      */
     void procesar_archivos() {
+        if (dataset_files.empty()) { 
+            std::cerr << "No dataset files found" << std::endl;
+        }
         std::string secuencia = sgte_archivo();
         do {
             update(secuencia);

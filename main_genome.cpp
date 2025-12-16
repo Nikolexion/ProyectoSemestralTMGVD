@@ -142,7 +142,6 @@ int main(int argc, char* argv[]) {
 
         // Guardar estructura
         mcs.save_structure(STRUCTURE_FILE);
-        std::cout << "Estructura guardada en " << STRUCTURE_FILE << std::endl;
     }
 
     if (mode == "score" || mode == "both") {
