@@ -1,6 +1,6 @@
 # Proyecto Multi-CountSketch
 
-Este proyecto implementa una herramienta eficiente en C++ para el análisis de frecuencias de K-mers en secuencias de ADN (formato FASTA) utilizando estructuras probabilísticas (CountSketch). Incluye scripts de visualización en Python para analizar la distribución de frecuencias y detectar anomalías en cromosomas.
+Este proyecto implementa una herramienta eficiente en C++ para el análisis de múltiples frecuencias de K-mers en secuencias de ADN (formato FASTA) utilizando estructuras probabilísticas (CountSketch). Incluye scripts de visualización en Python para analizar la distribución de frecuencias y detectar anomalías en cromosomas.
 
 * **Integrantes:**
   * Nicolás López
@@ -22,7 +22,7 @@ Este proyecto implementa una herramienta eficiente en C++ para el análisis de f
 Para compilar el proyecto, desde el directorio raíz, ejecutar el siguiente comando:
 
 ```bash
-g++ -O3 -fopenmp -march=native main_genome.cpp -o mcsketch
+g++ -std=c++17 -O3 -fopenmp -march=native main_genome.cpp -o mcsketch
 ```
 
 ---
